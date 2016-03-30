@@ -1,82 +1,131 @@
-FROM ampervue/python27
+FROM python:2.7
 
-# https://github.com/ampervue/docker-python27-opencv
+MAINTAINER Eugene Kazakov <eugene.a.kazakov@gmail.com>
 
-MAINTAINER David Karchmer <dkarchmer@gmail.com>
-
-########################################
-#
-# Image based on Ubuntu:trusty
-#
-#   with Python 2.7
-#   and OpenCV 3 (built)
-#   plus a bunch of build essencials
-#######################################
-
-ENV OPENCV_VERSION  2.4.10
+ENV OPENCV_VERSION 2.4.10
+ENV YASM_VERSION 1.3.0
+ENV NUM_CORES 4
 
 WORKDIR /usr/local/src
 
+RUN apt-get update -qq && apt-get install -y --force-yes \
+    ant \
+    autoconf \
+    automake \
+    build-essential \
+    curl \
+    checkinstall \
+    cmake \
+    default-jdk \
+    f2c \
+    gfortran \
+    git \
+    g++ \
+    imagemagick \
+    libass-dev \
+    libatlas-base-dev \
+    libavcodec-dev \
+    libavformat-dev \
+    libcnf-dev \
+#    libfaac-dev \
+    libfreeimage-dev \
+    libjpeg-dev \
+    libjasper-dev \
+    libgnutls28-dev \
+    liblapack3 \
+    libmp3lame-dev \
+    libpq-dev \
+    libpng-dev \
+    libssl-dev \
+    libtheora-dev \
+    libtiff5-dev \
+    libtool \
+    libxine2-dev \
+    libxvidcore-dev \
+    libv4l-dev \
+    libvorbis-dev \
+    mercurial \
+    openssl \
+    pkg-config \
+    postgresql-client \
+    supervisor \
+    wget \
+    unzip \
+    && apt-get clean
+
+RUN pip install numpy
+ 
 RUN git clone --depth 1 https://github.com/l-smash/l-smash \
-   && git clone --depth 1 git://git.videolan.org/x264.git \
-   && hg clone https://bitbucket.org/multicoreware/x265 \
-   && git clone --depth 1 git://source.ffmpeg.org/ffmpeg \
-   && git clone https://github.com/Itseez/opencv.git \
-   && git clone --depth 1 git://github.com/mstorsjo/fdk-aac.git \
-   && git clone --depth 1 https://chromium.googlesource.com/webm/libvpx \
-   && git clone --depth 1 git://git.opus-codec.org/opus.git \
-   && git clone --depth 1 https://github.com/mulx/aacgain.git
+    && git clone --depth 1 git://git.videolan.org/x264.git \
+    && hg clone https://bitbucket.org/multicoreware/x265 \
+    && git clone --depth 1 git://source.ffmpeg.org/ffmpeg \
+    && git clone https://github.com/Itseez/opencv.git \
+    && git clone --depth 1 git://github.com/mstorsjo/fdk-aac.git \
+    && git clone --depth 1 https://chromium.googlesource.com/webm/libvpx \
+    && git clone --depth 1 git://git.opus-codec.org/opus.git \
+    && git clone --depth 1 https://github.com/mulx/aacgain.git
+
+RUN curl -Os http://www.tortall.net/projects/yasm/releases/yasm-${YASM_VERSION}.tar.gz \
+    && tar xzvf yasm-${YASM_VERSION}.tar.gz
+
+# Build YASM
+# =================================
+WORKDIR /usr/local/src/yasm-${YASM_VERSION}
+RUN ./configure \
+    && make -j ${NUM_CORES} \
+    && make install
+# =================================
 
 # Build L-SMASH
 # =================================
 WORKDIR /usr/local/src/l-smash
-RUN ./configure
-RUN make -j 4
-RUN make install
+RUN ./configure \
+    && make -j ${NUM_CORES} \
+    && make install
 # =================================
 
 
 # Build libx264
 # =================================
 WORKDIR /usr/local/src/x264
-RUN ./configure --enable-static
-RUN make -j 4
-RUN make install
+RUN ./configure --enable-static \
+    && make -j ${NUM_CORES} \
+    && make install
 # =================================
 
 
 # Build libx265
 # =================================
 WORKDIR  /usr/local/src/x265/build/linux
-RUN cmake -DCMAKE_INSTALL_PREFIX:PATH=/usr ../../source
-RUN make -j 4
-RUN make install
+RUN cmake -DCMAKE_INSTALL_PREFIX:PATH=/usr ../../source \
+    && make -j ${NUM_CORES} \
+    && make install
 # =================================
 
 # Build libfdk-aac
 # =================================
 WORKDIR /usr/local/src/fdk-aac
-RUN autoreconf -fiv
-RUN ./configure --disable-shared
-RUN make -j 4
-RUN make install
+RUN autoreconf -fiv \
+    && ./configure --disable-shared \
+    && make -j ${NUM_CORES} \
+    && make install
 # =================================
 
 # Build libvpx
 # =================================
 WORKDIR /usr/local/src/libvpx
-RUN ./configure --disable-examples
-RUN make -j 4
-RUN make install
+RUN ./configure --disable-examples \
+    && make -j ${NUM_CORES} \
+    && make install
 # =================================
 
 # Build libopus
 # =================================
 WORKDIR /usr/local/src/opus
-RUN ./autogen.sh
-RUN ./configure --disable-shared
-RUN make -j 4
-RUN make install
+RUN ./autogen.sh \
+    && ./configure --disable-shared \
+    && make -j ${NUM_CORES} \
+    && make install
 # =================================
 
 
@@ -92,12 +141,11 @@ RUN cmake -D CMAKE_BUILD_TYPE=RELEASE \
           -D WITH_TBB=ON \
           -D BUILD_PYTHON_SUPPORT=ON \
           -D WITH_V4L=ON \
-          ..
-
-RUN make -j4
-RUN make install
-RUN sh -c 'echo "/usr/local/lib" > /etc/ld.so.conf.d/opencv.conf'
-RUN ldconfig
+          .. \
+    && make -j ${NUM_CORES} \
+    && make install \
+    && sh -c 'echo "/usr/local/lib" > /etc/ld.so.conf.d/opencv.conf' \
+    && ldconfig
 # =================================
 
 
@@ -121,9 +169,9 @@ RUN ./configure --extra-libs="-ldl" \
             --enable-libvorbis \
             --enable-libvpx \
             --enable-libx264 \
-            --enable-nonfree
-RUN make -j 4
-RUN make install
+            --enable-nonfree \
+    && make -j ${NUM_CORES} \
+    && make install
 # =================================
 
 
