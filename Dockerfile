@@ -2,7 +2,7 @@ FROM python:2.7
 
 MAINTAINER Eugene Kazakov <eugene.a.kazakov@gmail.com>
 
-ENV OPENCV_VERSION 2.4.10
+ENV OPENCV_VERSION 3.1.0
 ENV YASM_VERSION 1.3.0
 ENV NUM_CORES 4
 
@@ -180,4 +180,8 @@ RUN ./configure --extra-libs="-ldl" \
 WORKDIR /usr/local/
 RUN rm -rf /usr/local/src
 # =================================
+
+# libdc1394 error: Failed to initialize libdc1394
+# mount -v /dev/null:/dev/raw1394
+# or run: ln /dev/null /dev/raw1394
 
