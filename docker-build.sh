@@ -1,5 +1,7 @@
 #!/bin/bash -e
 
+NUM_CORES=$(nproc)
+
 cd /usr/local/src
 
 apt-get update -qq
